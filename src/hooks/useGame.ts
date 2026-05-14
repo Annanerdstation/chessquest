@@ -6,7 +6,26 @@ import type { Move } from 'chess.js';
 import { useGame as useGameContext } from '@/context/GameContext';
 import { useStockfish } from './useStockfish';
 
-const DEPTH_BY_DIFFICULTY = { 1: 1, 2: 4, 3: 8 } as const;
+// Difficulty config: [depth, skillLevel (0-20), randomMoveProbability]
+// Beginner: mostly random moves — even a 6-year-old can win
+// Explorer: occasionally random — feels beatable but plays real chess
+// Champion: full Stockfish strength
+const DIFFICULTY_CONFIG = {
+  1: { depth: 1,  skillLevel: 1,  randomChance: 0.65 },
+  2: { depth: 4,  skillLevel: 8,  randomChance: 0.20 },
+  3: { depth: 10, skillLevel: 18, randomChance: 0.00 },
+} as const;
+
+function pickRandomMove(chess: Chess): { from: string; to: string; promotion?: string } | null {
+  const moves = chess.moves({ verbose: true });
+  if (moves.length === 0) return null;
+  const move = moves[Math.floor(Math.random() * moves.length)];
+  return {
+    from: move.from,
+    to: move.to,
+    promotion: move.promotion,
+  };
+}
 
 export function useBoard() {
   const { gameState, applyMove, undoMove, setThinking, setGameOver, consumeUndo } = useGameContext();
@@ -65,9 +84,23 @@ export function useBoard() {
     if (chess.isGameOver()) return;
     setThinking(true);
     try {
-      const depth = DEPTH_BY_DIFFICULTY[gameState.difficulty];
-      const { from, to, promotion } = await getBestMove(chess.fen(), depth);
-      const move = chess.move({ from, to, promotion: promotion || 'q' });
+      const config = DIFFICULTY_CONFIG[gameState.difficulty];
+
+      // Decide whether to play a random move (makes lower levels genuinely beatable)
+      const playRandom = Math.random() < config.randomChance;
+
+      let chosen: { from: string; to: string; promotion?: string } | null = null;
+
+      if (playRandom) {
+        chosen = pickRandomMove(chess);
+      }
+
+      // Fall back to Stockfish if random picker returned nothing or we're not going random
+      if (!chosen) {
+        chosen = await getBestMove(chess.fen(), config.depth, config.skillLevel);
+      }
+
+      const move = chess.move({ from: chosen.from, to: chosen.to, promotion: chosen.promotion || 'q' });
       if (move) {
         applyMove(move, chess);
         setLastMove({ from: move.from, to: move.to });
@@ -75,7 +108,17 @@ export function useBoard() {
         checkGameOver(chess);
       }
     } catch {
-      // AI failed silently
+      // AI failed — try a random legal move as last resort
+      const fallback = pickRandomMove(chessRef.current);
+      if (fallback) {
+        const move = chessRef.current.move({ from: fallback.from, to: fallback.to, promotion: fallback.promotion || 'q' });
+        if (move) {
+          applyMove(move, chessRef.current);
+          setLastMove({ from: move.from, to: move.to });
+          setCheckSquare(findCheckSquare(chessRef.current));
+          checkGameOver(chessRef.current);
+        }
+      }
     } finally {
       setThinking(false);
     }

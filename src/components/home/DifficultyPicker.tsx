@@ -15,41 +15,33 @@ const LEVELS: Array<{
   difficulty: Difficulty;
   label: string;
   emoji: string;
-  depth: number;
-  undos: number;
-  hints: number;
   color: string;
   desc: string;
+  sub: string;
 }> = [
   {
     difficulty: 1,
     label: 'Beginner',
     emoji: '🟢',
-    depth: 1,
-    undos: 3,
-    hints: 3,
     color: 'border-green-400 hover:bg-green-50',
-    desc: 'Easy AI · 3 hints · 3 undos',
+    desc: 'Very easy · 3 hints · 3 undos',
+    sub: 'Perfect for first-time players!',
   },
   {
     difficulty: 2,
     label: 'Explorer',
     emoji: '🟡',
-    depth: 4,
-    undos: 1,
-    hints: 1,
     color: 'border-yellow-400 hover:bg-yellow-50',
-    desc: 'Medium AI · 1 hint · 1 undo',
+    desc: 'Medium · 1 hint · 1 undo',
+    sub: 'A real challenge!',
   },
   {
     difficulty: 3,
     label: 'Champion',
     emoji: '🔴',
-    depth: 8,
-    undos: 0,
-    hints: 0,
     color: 'border-red-400 hover:bg-red-50',
-    desc: 'Hard AI · No hints · No undos',
+    desc: 'Hard · No hints · No undos',
+    sub: 'For serious players only!',
   },
 ];
 
@@ -68,7 +60,8 @@ export default function DifficultyPicker({ isOpen, onSelect, onClose }: Difficul
             <span className="text-2xl">{level.emoji}</span>
             <div className="text-left">
               <div className="font-bold text-gray-800 font-nunito">{level.label}</div>
-              <div className="text-xs text-gray-500">{level.desc}</div>
+              <div className="text-xs text-gray-600 font-semibold">{level.desc}</div>
+              <div className="text-xs text-gray-400 mt-0.5">{level.sub}</div>
             </div>
           </button>
         ))}

@@ -38,13 +38,16 @@ export function useStockfish() {
     if (isReadyRef.current) return Promise.resolve();
     return new Promise((resolve) => {
       pendingReadyRef.current.push(resolve);
-      // Timeout fallback
       setTimeout(resolve, 5000);
     });
   }, []);
 
   const getBestMove = useCallback(
-    async (fen: string, depth: number): Promise<{ from: string; to: string; promotion?: string }> => {
+    async (
+      fen: string,
+      depth: number,
+      skillLevel: number = 20
+    ): Promise<{ from: string; to: string; promotion?: string }> => {
       const worker = workerRef.current;
       if (!worker) throw new Error('No Stockfish worker');
 
@@ -77,6 +80,7 @@ export function useStockfish() {
 
         worker.addEventListener('message', handler);
         worker.postMessage('ucinewgame');
+        worker.postMessage(`setoption name Skill Level value ${skillLevel}`);
         worker.postMessage(`position fen ${fen}`);
         worker.postMessage(`go depth ${depth}`);
       });
