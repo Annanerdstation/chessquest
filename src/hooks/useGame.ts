@@ -11,7 +11,7 @@ import { useStockfish } from './useStockfish';
 // Explorer: occasionally random — feels beatable but plays real chess
 // Champion: full Stockfish strength
 const DIFFICULTY_CONFIG = {
-  1: { depth: 1,  skillLevel: 0,  randomChance: 0.85 },
+  1: { depth: 2,  skillLevel: 2,  randomChance: 0.45 },
   2: { depth: 4,  skillLevel: 8,  randomChance: 0.20 },
   3: { depth: 10, skillLevel: 18, randomChance: 0.00 },
 } as const;
