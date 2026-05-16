@@ -6,6 +6,8 @@ import type { Move } from 'chess.js';
 import { supabase, generateRoomCode } from '@/lib/supabase';
 import type { GameRow } from '@/lib/supabase';
 
+const POLL_INTERVAL_MS = 2000;
+
 export type OnlineRole = 'white' | 'black';
 export type OnlineStatus = 'idle' | 'creating' | 'waiting' | 'joining' | 'playing' | 'finished' | 'error';
 
@@ -28,6 +30,7 @@ const CODE_KEY = 'chessquest_online_code';
 export function useOnlineGame() {
   const chessRef = useRef(new Chess());
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [state, setState] = useState<OnlineGameState>({
     status: 'idle',
@@ -41,12 +44,20 @@ export function useOnlineGame() {
     error: null,
   });
 
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
   const cleanup = useCallback(() => {
+    stopPolling();
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
-  }, []);
+  }, [stopPolling]);
 
   useEffect(() => () => cleanup(), [cleanup]);
 
@@ -66,6 +77,10 @@ export function useOnlineGame() {
     const opponentConnected =
       role === 'white' ? row.black_connected : row.white_connected;
 
+    if (row.status === 'playing' || row.status === 'finished') {
+      stopPolling();
+    }
+
     setState((prev) => ({
       ...prev,
       fen: row.fen,
@@ -75,7 +90,7 @@ export function useOnlineGame() {
       status: row.status === 'finished' ? 'finished' : row.status === 'playing' ? 'playing' : prev.status,
       result: row.result ?? null,
     }));
-  }, []);
+  }, [stopPolling]);
 
   const subscribeToGame = useCallback((code: string, role: OnlineRole) => {
     cleanup();
@@ -129,12 +144,26 @@ export function useOnlineGame() {
         isMyTurn: true,
         opponentConnected: false,
       }));
-    } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        status: 'error',
-        error: err instanceof Error ? err.message : 'Failed to create game',
-      }));
+
+      // Polling fallback: check every 2s until opponent joins
+      stopPolling();
+      pollRef.current = setInterval(async () => {
+        const { data } = await supabase
+          .from('games')
+          .select('*')
+          .eq('code', code)
+          .single();
+        if (data && (data.black_connected || data.status === 'playing')) {
+          stopPolling();
+          applyGameRow(data as GameRow, 'white');
+        }
+      }, POLL_INTERVAL_MS);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Failed to create game. Make sure the games table exists in Supabase.';
+      setState((prev) => ({ ...prev, status: 'error', error: msg }));
     }
   }, [subscribeToGame]);
 
@@ -250,6 +279,7 @@ export function useOnlineGame() {
   }, [state]);
 
   const reset = useCallback(() => {
+    stopPolling();
     cleanup();
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(ROLE_KEY);
