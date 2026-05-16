@@ -44,6 +44,7 @@ export function useOnlineGame() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastFenRef = useRef<string>(INITIAL_FEN);
+  const lastStatusRef = useRef<string>('waiting');
 
   const [state, setState] = useState<OnlineGameState>(DEFAULT_STATE);
 
@@ -105,13 +106,17 @@ export function useOnlineGame() {
       const { data, error } = await supabase
         .from('games').select('*').eq('code', code).single();
       if (!error && data) {
-        // Always apply during waiting (detect join) and when FEN changed (detect moves)
-        if (data.fen !== lastFenRef.current || data.status !== 'playing') {
+        // Apply whenever something meaningful changed
+        const fenChanged = data.fen !== lastFenRef.current;
+        const statusChanged = data.status !== lastStatusRef.current;
+        const opponentJoined =
+          role === 'white' ? data.black_connected : data.white_connected;
+
+        if (fenChanged || statusChanged || opponentJoined) {
+          lastFenRef.current = data.fen;
+          lastStatusRef.current = data.status;
           applyRow(data as GameRow, role);
         }
-        // Also update opponent-connected flag even if FEN same
-        const opponentConnected = role === 'white' ? data.black_connected : data.white_connected;
-        setState((prev) => ({ ...prev, opponentConnected }));
       }
     }, POLL_MS);
   }, [stopPolling, applyRow]);
@@ -190,6 +195,7 @@ export function useOnlineGame() {
       sessionStorage.setItem(ROLE_KEY, 'white');
       sessionStorage.setItem(CODE_KEY, code);
       lastFenRef.current = INITIAL_FEN;
+      lastStatusRef.current = 'waiting';
 
       subscribeToGame(code, 'white');
       startPolling(code, 'white');
@@ -228,6 +234,7 @@ export function useOnlineGame() {
       chess.load(data.fen);
       chessRef.current = chess;
       lastFenRef.current = data.fen;
+      lastStatusRef.current = 'playing';
 
       subscribeToGame(data.code, 'black');
       startPolling(data.code, 'black');
@@ -308,6 +315,7 @@ export function useOnlineGame() {
     }
     chessRef.current = new Chess();
     lastFenRef.current = INITIAL_FEN;
+    lastStatusRef.current = 'waiting';
     setState(DEFAULT_STATE);
   }, [cleanup]);
 
