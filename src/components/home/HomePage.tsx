@@ -111,9 +111,18 @@ export default function HomePage() {
             size="lg"
             onClick={handlePlayFriend}
             className="w-full"
-            aria-label="Play vs Friend"
+            aria-label="Play vs Friend (same device)"
           >
             👥 Play Friend
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={() => router.push('/online')}
+            className="w-full !bg-blue-500 hover:!bg-blue-600"
+            aria-label="Play online with a friend on another device"
+          >
+            🌐 Play Online
           </Button>
           <Button
             variant="ghost"

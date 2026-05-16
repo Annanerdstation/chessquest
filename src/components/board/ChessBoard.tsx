@@ -17,6 +17,7 @@ interface ChessBoardProps {
   isShaking: boolean;
   theme: 'classic' | 'ice';
   boardWidth?: number;
+  boardOrientation?: 'white' | 'black';
 }
 
 const THEME_STYLES = {
@@ -43,6 +44,7 @@ export default function ChessBoard({
   isShaking,
   theme,
   boardWidth = 480,
+  boardOrientation = 'white',
 }: ChessBoardProps) {
   const themeStyles = THEME_STYLES[theme];
 
@@ -116,6 +118,7 @@ export default function ChessBoard({
       <Chessboard
         options={{
           position: fen,
+          boardOrientation,
           squareStyles,
           darkSquareStyle: themeStyles.dark,
           lightSquareStyle: themeStyles.light,
